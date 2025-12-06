@@ -1,0 +1,786 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Quiz Game </title>
+<style>
+:root{
+  --bg:#071226; --panel:#0b1220; --muted:#98a2b3; --accent:#06b6d4; --accent2:#7c3aed;
+  --good:#16a34a; --bad:#ef4444; --glass: rgba(255,255,255,0.03);
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:linear-gradient(180deg,#031022,#071226);color:#e6eef6;min-height:100vh}
+.container{max-width:1200px;margin:18px auto;padding:18px}
+.header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.title{font-weight:800}
+.controls{display:flex;gap:8px;align-items:center}
+.btn{background:linear-gradient(90deg,var(--accent),var(--accent2));border:none;color:#021;padding:8px 12px;border-radius:8px;cursor:pointer;font-weight:800; font-size: 15px; color: white}
+.btn.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--accent)}
+.grid-wrap{display:grid;grid-template-columns:1fr 380px;gap:18px;margin-top:18px}
+.board{background:var(--panel);border-radius:12px;padding:14px;box-shadow:0 10px 30px rgba(0,0,0,0.6)}
+.side{background:var(--panel);border-radius:12px;padding:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:10px}
+.cell{background:var(--glass);padding:18px;border-radius:8px;text-align:center;font-weight:800;cursor:pointer;border:1px solid rgba(255,255,255,0.03)}
+.cell.used {
+  background: red;   /* light red */
+  border: 1px solid rgba(239,68,68,0.55);
+  color: #ff9a9a;
+  cursor: not-allowed;
+  font-weight: 900;
+}
+#turnLabel{
+  font-size: 30px;
+}
+.team-list{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.team{display:flex;align-items:center;justify-content:space-between;padding:10px;border-radius:8px;background:rgba(255,255,255,0.02)}
+.qpanel{margin-top:12px;padding:12px;border-radius:8px;background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent)}
+.options{display:flex;flex-direction:column;gap:8px;margin-top:10px, font-size:50px}
+.opt{padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.04);cursor:pointer;background:transparent}
+.opt.correct {
+   color: #ffff;
+   background: green;
+   font-size: 30px;
+}
+
+.opt.wrong {
+    background: linear-gradient(90deg, rgba(255,40,40,0.35), rgba(255,40,40,0.25));
+    border-color: rgba(255,40,40,0.9);
+    box-shadow: 
+        0 0 12px rgba(255,40,40,0.9),
+        0 0 20px rgba(255,40,40,0.7),
+        0 0 30px rgba(255,40,40,0.5);
+}
+
+.opt.disabled{opacity:0.6;pointer-events:none}
+.timer{font-weight:800;font-size:28px}
+.small-muted{
+  font-size:13px;
+  color:#ffffff !important;   /* full bright white */
+}
+
+.modal{position:fixed;inset:0;background:rgba(2,6,23,0.7);display:flex;align-items:center;justify-content:center;z-index:90}
+.modal-card{width:960px;max-width:96%;background:#071226;padding:16px;border-radius:12px}
+.input,textarea,select{width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit}
+.small-input{width:120px}
+.q-grid{max-height:420px;overflow:auto;margin-top:8px;border-radius:8px;padding:8px;background:rgba(255,255,255,0.01)}
+#adminList { max-height: 360px; overflow-y: auto; padding-right: 8px; }
+
+/* ranking modal */
+.ranking { text-align:center; padding:16px; }
+.ranking ol { text-align:left; display:inline-block; margin:12px 0; }
+
+/* projector */
+.projector{position:fixed;inset:0;background:#021226;color:white;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999}
+.projector .question{top:50px ; font-size:30px;text-align:center;margin-bottom:18px}
+.projector .option{font-size:30px;padding:18px 20px;border-radius:12px;margin:8px;background:rgba(255,255,255,0.03);min-width:520px;text-align:center;display:block;width:720px;cursor:pointer;user-select:none}
+.projector .option.correct {
+    background: linear-gradient(90deg, rgba(0,255,120,0.35), rgba(0,255,120,0.25));
+    border-color: rgba(0,255,120,0.9);
+    box-shadow: 
+        0 0 12px rgba(0,255,120,0.9),
+        0 0 20px rgba(0,255,120,0.7),
+        0 0 30px rgba(0,255,120,0.5);
+}
+
+.projector .option.wrong {
+    background: linear-gradient(90deg, rgba(255,40,40,0.35), rgba(255,40,40,0.25));
+    border-color: rgba(255,40,40,0.9);
+    box-shadow: 
+        0 0 12px rgba(255,40,40,0.9),
+        0 0 20px rgba(255,40,40,0.7),
+        0 0 30px rgba(255,40,40,0.5);
+}
+
+.projector .option.disabled{opacity:0.5;pointer-events:none}
+.projector .timer{position:absolute;bottom:30px;right:30px;font-size:50px}
+.projector .exit{position:absolute;top:20px;right:20px;padding:8px 12px}
+.notice{font-size:13px;color:var(--muted);margin-top:8px}
+/* Make all dim/low-opacity white text fully white */
+[class*="muted"],
+[class*="small"],
+.cell.used,
+.team div,
+.notice,
+#qmeta,
+#projTurn {
+  color: #ffffff !important;
+}
+
+/* FORCE ALL OPTIONS TO BE PURE WHITE */
+.opt,
+.opt * {
+    color: #ffffff !important;
+}
+
+.projector .option,
+.projector .option * {
+    color: #ffffff !important;
+}
+
+
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div>
+      <div class="title"><h2>BARAHA MEMORIAL ENGLISH SCHOOL</h2> </div>
+      <div class="small-muted">Quiz Game / Develop by <b>UTSAB SAPKOTA</b></div>
+    </div>
+    <div class="controls">
+      <button class="btn" id="btnSetup">Setup</button>
+      <button class="btn ghost" id="btnAdmin">Admin</button>
+      <button class="btn ghost" id="btnExport">Export JSON</button>
+      <button class="btn" id="btnProjector">Projector</button>
+    </div>
+  </div>
+
+  <div class="grid-wrap">
+    <div class="board">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div><strong id="turnLabel">Turn: —</strong> <span class="small-muted"> | Left: <span id="leftCount">0</span></span></div>
+        <div class="small-muted">Direction: <span id="dirLabel">clockwise</span></div>
+      </div>
+
+      <div id="grid" class="grid"></div>
+
+      <div class="notice">Click any number to open question. Used numbers are disabled.</div>
+    </div>
+
+    <div class="side">
+      <div class="small-muted"> <h3>Teams & Score</h3> </div>
+      <div id="teams" class="team-list"></div>
+
+      <div class="qpanel" id="qpanel">
+        <div id="qmeta" class="small-muted">Select a cell to show question</div>
+        <div id="qtext" style="font-weight:800;margin-top:6px"></div>
+        <div id="opts" class="options"></div>
+
+        <div style="display:flex;align-items:center;gap:8px;margin-top:12px">
+          <div class="timer" id="timer">00</div>
+          <div style="margin-left:auto;display:flex;gap:8px">
+            <button class="btn ghost" id="btnPass"><b style="color: yellow;">pass</b> </button>
+            <button class="btn ghost" id="btnReveal"> <b style="color: yellow;">Reveal (Audience)</b> </button>
+            <button class="btn ghost" id="btnNext" style="display:none">Next</button>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:12px">
+        <div class="small-muted">Settings</div>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
+          <label class="small-muted">Main(s)</label>
+          <input id="mainTime" class="small-input input" type="number" value="15" min="1">
+          <label class="small-muted">Pass(s)</label>
+          <input id="passTime" class="small-input input" type="number" value="10" min="1">
+          <label class="small-muted">Options</label>
+          <select id="optionsCount" class="input small-input"><option value="4">4</option><option value="5">5</option><option value="6" selected>6</option></select>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Setup -->
+<div id="modalSetup" class="modal" style="display:none">
+  <div class="modal-card">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <h3>Setup</h3>
+      <div><button class="btn" id="closeSetup">Close</button></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <div style="flex:1"><label class="small-muted">Teams (1–6)</label><input id="teamCount" class="input" type="number" min="1" max="6" value="4"></div>
+      <div style="flex:1"><label class="small-muted">Questions</label><input id="questionCount" class="input" type="number" min="6" max="200" value="50"></div>
+      <div style="flex:1"><label class="small-muted">Start direction</label><select id="startDir" class="input"><option value="clockwise">Clockwise</option><option value="anticlockwise">Anticlockwise</option></select></div>
+    </div>
+
+    <div style="margin-top:8px">
+      <label class="small-muted">Team names (A–F)</label>
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <input id="t1" class="input small-input" placeholder="A"><input id="t2" class="input small-input" placeholder="B"><input id="t3" class="input small-input" placeholder="C">
+        <input id="t4" class="input small-input" placeholder="D"><input id="t5" class="input small-input" placeholder="E"><input id="t6" class="input small-input" placeholder="F">
+      </div>
+    </div>
+
+    <div style="margin-top:12px;text-align:right">
+      <button class="btn" id="applySetup">Apply & Start</button>
+      <button class="btn ghost" id="cancelSetup">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Admin -->
+<div id="modalAdmin" class="modal" style="display:none">
+  <div class="modal-card">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <h3>Admin</h3>
+      <div><button class="btn" id="closeAdmin">Close</button></div>
+    </div>
+
+    <div style="display:flex;gap:12px;margin-top:8px">
+      <div style="flex:1">
+        <label class="small-muted">Question</label>
+        <textarea id="adm_qtext" class="input" rows="3"></textarea>
+        <div style="display:flex;gap:6px;margin-top:6px"><input id="adm_o1" class="input" placeholder="Option 1"><input id="adm_o2" class="input" placeholder="Option 2"></div>
+        <div style="display:flex;gap:6px;margin-top:6px"><input id="adm_o3" class="input" placeholder="Option 3"><input id="adm_o4" class="input" placeholder="Option 4"></div>
+        <div style="display:flex;gap:6px;margin-top:6px"><input id="adm_o5" class="input" placeholder="Option 5"><input id="adm_o6" class="input" placeholder="Option 6"></div>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
+          <label class="small-muted">Correct (1–6)</label><input id="adm_ans" class="input small-input" type="number" min="1" max="6" value="1">
+          <button class="btn" id="addQ">Add Question</button>
+          <button class="btn ghost" id="clearAdmin">Clear</button>
+        </div>
+      </div>
+
+      <div style="width:360px">
+        <div style="display:flex;gap:8px">
+          <button class="btn" id="importBtn">Import JSON</button>
+          <button class="btn ghost" id="exportBtn2">Export JSON</button>
+          <button class="btn ghost" id="deleteAll" style="background:#ef4444;color:white">Delete All</button>
+        </div>
+
+        <div style="margin-top:8px"><label class="small-muted">Paste JSON (array or {"questions":[...]})</label>
+          <textarea id="importArea" class="input" style="height:120px"></textarea>
+        </div>
+
+        <div style="margin-top:10px">
+          <div class="small-muted">Existing Questions</div>
+          <div id="adminList" class="q-grid"></div>
+          <div style="text-align:right;margin-top:8px"><button class="btn ghost" id="resetBtn">Reset Quiz</button></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="text-align:right;margin-top:10px"><button class="btn ghost" id="closeAdminBottom">Close Admin</button></div>
+  </div>
+</div>
+
+<!-- Ranking Modal -->
+<div id="modalRank" class="modal" style="display:none">
+  <div class="modal-card ranking" id="rankContent">
+    <!-- filled dynamically -->
+  </div>
+</div>
+
+<!-- Projector -->
+<div id="projector" class="projector" style="display:none">
+  <div id="projTurn" style="position:absolute;top:20px;left:20px;font-size:40px"></div>
+  <div id="projQ" class="question">No question</div>
+  <div id="projOpts" style="display:flex;flex-direction:column;align-items:center"></div>
+  <div id="projTimer" class="timer"></div>
+  <button class="btn exit projectorExit" id="projExit">Exit</button>
+</div>
+
+<script>
+(() => {
+  const STORAGE = 'quiz_final_complete_v1';
+
+  // state
+  let questions = [];
+  let teams = [];
+  let curTeam = 0;
+  let direction = 'clockwise';
+  let optionsPerQ = 6;
+  let mainTime = 15;
+  let passTime = 10;
+  let timer = null;
+  let timeLeft = 0;
+  let lastOpened = null;
+
+  // audio
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  let audioCtx;
+  function ensureAudio(){ if(!audioCtx) audioCtx = new AudioCtx(); }
+  function playTone(freq,dur=120){ try{ ensureAudio(); const o = audioCtx.createOscillator(); const g = audioCtx.createGain(); o.type='sine'; o.frequency.value=freq; g.gain.value=0.06; o.connect(g); g.connect(audioCtx.destination); o.start(); setTimeout(()=> o.stop(), dur); }catch(e){} }
+  function soundCorrect(){ playTone(880); setTimeout(()=> playTone(1320), 120); }
+  function soundWrong(){ playTone(160,220); }
+  function soundTick(){ playTone(1000,30); }
+  function soundBuzzer(){ playTone(120,700); }
+  function soundTurnStart(){ playTone(600,90); }
+
+  const $ = id => document.getElementById(id);
+
+  function save(){ try{ localStorage.setItem(STORAGE, JSON.stringify({questions, teams, curTeam, direction, optionsPerQ, mainTime, passTime})); }catch(e){ console.warn('save failed', e); } }
+  function load(){
+    const raw = localStorage.getItem(STORAGE);
+    if(!raw){ questions = sample(50); teams = []; return; }
+    try{
+      const d = JSON.parse(raw);
+      if(Array.isArray(d)) questions = d;
+      else if(d.questions && Array.isArray(d.questions)) questions = d.questions;
+      else questions = d.questions ? d.questions : (d.questions === undefined ? sample(50) : d.questions);
+      teams = d.teams || [];
+      curTeam = d.curTeam || 0;
+      direction = d.direction || 'clockwise';
+      optionsPerQ = d.optionsPerQ || 6;
+      mainTime = d.mainTime || 15;
+      passTime = d.passTime || 10;
+    }catch(e){
+      console.warn('load error', e);
+      questions = sample(50);
+      teams = [];
+    }
+  }
+  function sample(n){
+    const a=[];
+    for(let i=1;i<=n;i++){
+      const opts=[]; for(let k=1;k<=6;k++) opts.push(`Option ${k} for Q${i}`);
+      a.push({id:i,text:`Sample question ${i}?`,options:opts,answer:(i%6),used:false});
+    }
+    return a;
+  }
+
+  function render(){
+    renderGrid();
+    renderTeams();
+    renderAdminList();
+    $('leftCount').textContent = questions.filter(q=>!q.used).length;
+    $('dirLabel').textContent = direction;
+    $('optionsCount').value = optionsPerQ;
+    $('mainTime').value = mainTime;
+    $('passTime').value = passTime;
+    updateTurnLabel();
+    syncProjector();
+  }
+
+  function renderGrid(){
+    const g = $('grid'); g.innerHTML = '';
+    questions.forEach((q,i)=>{
+      const c = document.createElement('div'); c.className = 'cell' + (q.used? ' used':'');
+      c.textContent = q.id;
+      if(!q.used) c.addEventListener('click', ()=> openQuestion(i));
+      g.appendChild(c);
+    });
+  }
+
+  function renderTeams(){
+    const el = $('teams'); el.innerHTML = '';
+    if(!teams.length){ el.innerHTML = '<div class="small-muted">No teams set. Use Setup.</div>'; return; }
+    teams.forEach((t,i)=>{
+      const d = document.createElement('div'); d.className='team';
+      d.innerHTML = `<div><strong>${t.name}</strong> ${i===curTeam?'<span class="small-muted">▶ current</span>':''}</div><div>Score: <b>${t.score||0}</b></div>`;
+      el.appendChild(d);
+    });
+  }
+  function updateTurnLabel(){ $('turnLabel').textContent = teams.length ? `Turn: ${teams[curTeam].name}` : 'Turn: —'; updateQMeta(); }
+
+  // update question meta to show current team (curTeam) while question is open
+function updateQMeta(){
+  if(lastOpened === null){
+    $('qmeta').textContent = 'Select a cell to show question';
+    return;
+  }
+  const q = questions[lastOpened];
+  if(!q){
+    $('qmeta').textContent = 'Select a cell to show question';
+    return;
+  }
+
+  const opener = q._opener !== undefined ? teams[q._opener].name : teams[curTeam].name;
+  const turnNow = teams[curTeam].name;
+
+  // Show opener + actual turn
+  $('qmeta').textContent = `Q ${q.id} — Team: ${opener} (Turn: ${turnNow})`;
+}
+
+
+  function openQuestion(idx){
+    if(!teams.length){ alert('Please setup teams first'); return; }
+    const q = questions[idx];
+    if(q.used) return;
+    lastOpened = idx;
+    q.used = true;
+    q._attempted = [curTeam];
+    q._opener = curTeam;
+    save(); renderGrid(); showQuestion(idx);
+  }
+
+  function showQuestion(idx){
+    stopTimer();
+    const q = questions[idx];
+    updateQMeta();
+    $('qtext').textContent = q.text;
+    const opts = $('opts'); opts.innerHTML = '';
+    for(let i=0;i<optionsPerQ;i++){
+      const d = document.createElement('div'); d.className='opt'; d.dataset.i = i; d.textContent = q.options[i] || `Option ${i+1}`;
+      d.addEventListener('click', ()=> onOptionClick(i, d));
+      opts.appendChild(d);
+    }
+    // UI state
+    $('btnNext').style.display = 'none';
+    $('btnReveal').style.display = 'inline-block';
+    $('btnPass').style.display = 'inline-block';
+    // start timer
+    timeLeft = mainTime;
+    updateTimer();
+    startTimer();
+    try{ soundTurnStart(); }catch(e){}
+    syncProjector();
+  }
+
+  function startTimer(){
+    stopTimer();
+    timer = setInterval(()=> {
+      updateTimer();
+      if(timeLeft <= 0){ stopTimer(); handleTimeUp(); return; }
+      try{ soundTick(); }catch(e){}
+      timeLeft--;
+      syncProjector();
+    },1000);
+  }
+  function stopTimer(){ if(timer){ clearInterval(timer); timer=null; } }
+  function updateTimer(){ $('timer').textContent = String(timeLeft).padStart(2,'0'); }
+
+  function onOptionClick(idx, dom){
+    if(lastOpened === null) return;
+    if(dom.classList.contains('correct') || dom.classList.contains('wrong')) return;
+    stopTimer();
+    const q = questions[lastOpened];
+    if(idx === q.answer){
+      // correct
+      dom.classList.add('correct');
+      try{ soundCorrect(); }catch(e){}
+      teams[curTeam].score = (teams[curTeam].score||0) + 1;
+      save(); renderTeams();
+      // Hide Pass — user requested this rule
+      $('btnPass').style.display = 'none';
+      // Show Next (host must click)
+      $('btnNext').style.display = 'inline-block';
+      // Disable all main options
+      Array.from($('opts').querySelectorAll('.opt')).forEach(o => o.classList.add('disabled'));
+      // Disable projector options as well (sync)
+      Array.from(document.querySelectorAll('#projOpts .option')).forEach(o => o.classList.add('disabled'));
+      // Do not automatically advance — wait for host to click Next
+    } else {
+      // wrong
+      dom.classList.add('wrong');
+      try{ soundWrong(); }catch(e){}
+      const qa = q._attempted || [];
+      if(!qa.includes(curTeam)) qa.push(curTeam);
+      q._attempted = qa;
+      save();
+      // pass to next team
+      setTimeout(()=> passToNextTeam(), 500);
+    }
+    syncProjector();
+  }
+
+  function passToNextTeam(){
+    if(lastOpened === null) return;
+    const q = questions[lastOpened];
+    // move to next team
+    curTeam = getNextTeam(curTeam);
+    q._attempted = q._attempted || [];
+    // check if all teams attempted at least once
+    const uniqueAttempted = Array.from(new Set(q._attempted));
+    if(uniqueAttempted.length >= teams.length){
+      // switch to audience mode automatically
+      enterAudienceMode();
+      return;
+    }
+    // mark attempted
+    if(!q._attempted.includes(curTeam)) q._attempted.push(curTeam);
+    save();
+    updateTurnLabel();
+    // start pass timer & sound
+    timeLeft = passTime;
+    startTimer();
+    try{ soundTurnStart(); }catch(e){}
+    // ensure UI: Pass visible, Reveal visible; Next hidden
+    $('btnPass').style.display = 'inline-block';
+    $('btnReveal').style.display = 'inline-block';
+    $('btnNext').style.display = 'none';
+    // ensure options enabled for click by this team
+    Array.from($('opts').querySelectorAll('.opt')).forEach(o => o.classList.remove('disabled'));
+    // enable projector options too (if shown)
+    Array.from(document.querySelectorAll('#projOpts .option')).forEach(o => o.classList.remove('disabled'));
+    syncProjector();
+  }
+
+  function getNextTeam(i){
+    if(!teams.length) return 0;
+    return direction === 'clockwise' ? ((i+1)%teams.length) : ((i-1+teams.length)%teams.length);
+  }
+
+  function handleTimeUp(){
+    if(lastOpened === null) return;
+    const q = questions[lastOpened];
+    q._attempted = q._attempted || [];
+    if(!q._attempted.includes(curTeam)) q._attempted.push(curTeam);
+    save();
+    const uniqueAttempted = Array.from(new Set(q._attempted));
+    if(uniqueAttempted.length >= teams.length){
+      enterAudienceMode();
+      return;
+    }
+    passToNextTeam();
+  }
+
+  function enterAudienceMode(){
+    if(lastOpened === null) return;
+    // lock options visually and disable clicking
+    Array.from($('opts').querySelectorAll('.opt')).forEach(o => { o.classList.add('disabled'); });
+    // also disable projector options
+    Array.from(document.querySelectorAll('#projOpts .option')).forEach(o => o.classList.add('disabled'));
+    stopTimer();
+    // no message (user chose D)
+    $('btnPass').style.display = 'none';
+    $('btnReveal').style.display = 'inline-block';
+    $('btnNext').style.display = 'none';
+    try{ soundBuzzer(); }catch(e){}
+    syncProjector();
+  }
+
+  function revealAudience(){
+    if(lastOpened === null) return;
+    const q = questions[lastOpened];
+    Array.from($('opts').querySelectorAll('.opt')).forEach(o => { if(parseInt(o.dataset.i,10) === q.answer) o.classList.add('correct'); });
+    // also mark projector correct
+    Array.from(document.querySelectorAll('#projOpts .option')).forEach(o => { if(parseInt(o.dataset.i,10) === q.answer) o.classList.add('correct'); });
+    try{ soundBuzzer(); }catch(e){}
+    // set next team to be after opener
+    curTeam = getNextTeam(q._opener || 0);
+    save(); updateTurnLabel();
+    // Do NOT show Next button (user requested). Instead, return to grid so next team can choose.
+    setTimeout(()=> {
+      // ensure Reveal/Pass/Next hidden appropriately, then clear question panel
+      $('btnReveal').style.display = 'none';
+      $('btnPass').style.display = 'none';
+      $('btnNext').style.display = 'none';
+      clearQuestion();
+    }, 900);
+    syncProjector();
+  }
+
+  function nextHandler(){
+    // If no questions left -> ranking
+    const left = questions.filter(q=>!q.used).length;
+    if(left === 0){
+      showRanking();
+      return;
+    }
+    // advance turn if previous action was correct
+    if(lastOpened !== null){
+      const opts = Array.from($('opts').querySelectorAll('.opt'));
+      const someoneCorrect = opts.some(o => o.classList.contains('correct'));
+      if(someoneCorrect){
+        curTeam = getNextTeam(curTeam);
+      } else {
+        // if reveal was used and we took the return-to-grid behavior, curTeam already set in revealAudience
+      }
+    }
+    save(); updateTurnLabel(); clearQuestion();
+  }
+
+  function passButtonHandler(){
+    if(lastOpened === null) return;
+    const q = questions[lastOpened];
+    q._attempted = q._attempted || [];
+    if(!q._attempted.includes(curTeam)) q._attempted.push(curTeam);
+    save();
+    passToNextTeam();
+  }
+
+  function clearQuestion(){
+    lastOpened = null;
+    $('qmeta').textContent = 'Select a cell to show question';
+    $('qtext').textContent = '';
+    $('opts').innerHTML = '';
+    $('btnReveal').style.display = 'inline-block';
+    $('btnPass').style.display = 'inline-block';
+    $('btnNext').style.display = 'none';
+    stopTimer();
+    renderGrid();
+    $('leftCount').textContent = questions.filter(q=>!q.used).length;
+    syncProjector();
+  }
+
+  // Admin functions
+  function addAdminQuestion(){
+    const text = $('adm_qtext').value.trim();
+    if(!text) return alert('Enter question text');
+    const opts = [];
+    for(let i=1;i<=6;i++){ const v = $('adm_o'+i).value.trim(); if(v) opts.push(v); }
+    if(opts.length < 2) return alert('At least 2 options required');
+    const ans = Math.max(0, Math.min(opts.length-1, parseInt($('adm_ans').value||'1') - 1));
+    const id = questions.length ? Math.max(...questions.map(q=>q.id))+1 : 1;
+    questions.push({id, text, options: opts, answer: ans, used: false});
+    save(); render(); renderAdminList(); clearAdminForm();
+  }
+  function clearAdminForm(){ $('adm_qtext').value=''; for(let i=1;i<=6;i++) $('adm_o'+i).value=''; $('adm_ans').value='1'; }
+
+  function renderAdminList(){
+    const box = $('adminList'); box.innerHTML = '';
+    questions.forEach((q, idx)=> {
+      const div = document.createElement('div'); div.style.padding='8px'; div.style.borderBottom='1px solid rgba(255,255,255,0.03)';
+      div.innerHTML = `<div><strong>Q${q.id}</strong> ${escapeHtml(q.text)}</div><div class="small-muted">Opts:${q.options.length} Ans:${q.answer+1}</div>
+        <div style="margin-top:6px"><button data-edit="${idx}" class="btn ghost">Edit</button> <button data-del="${idx}" class="btn ghost">Delete</button></div>`;
+      box.appendChild(div);
+    });
+    box.querySelectorAll('[data-edit]').forEach(b=> b.addEventListener('click', e=> editQuestion(parseInt(e.currentTarget.getAttribute('data-edit'),10))));
+    box.querySelectorAll('[data-del]').forEach(b=> b.addEventListener('click', e=> deleteQuestion(parseInt(e.currentTarget.getAttribute('data-del'),10))));
+  }
+  function editQuestion(idx){
+    const q = questions[idx];
+    const t = prompt('Edit question text', q.text);
+    if(t === null) return;
+    q.text = t;
+    save(); render(); renderAdminList();
+  }
+  function deleteQuestion(idx){
+    if(!confirm('Delete this question?')) return;
+    questions.splice(idx,1);
+    questions.forEach((q,i)=> q.id = i+1);
+    save(); render(); renderAdminList();
+  }
+
+  function importJSON(){
+    const raw = $('importArea').value.trim();
+    if(!raw) return alert('Paste JSON first');
+    try{
+      const data = JSON.parse(raw);
+      let arr = [];
+      if(Array.isArray(data)) arr = data;
+      else if(data.questions && Array.isArray(data.questions)) arr = data.questions;
+      else return alert('JSON must be an array or { "questions": [...] }');
+      questions = arr.map((it,i)=> ({ id:i+1, text: it.q || it.text || it.question || `Q${i+1}`, options: it.options || it.opts || [], answer: typeof it.answer === 'number' ? it.answer : 0, used:false }));
+      save(); render(); renderAdminList(); alert('Imported '+questions.length+' questions');
+    }catch(e){ alert('Invalid JSON: ' + e.message); }
+  }
+
+  function exportJSON(){
+    const data = JSON.stringify(questions, null, 2);
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([data], {type:'application/json'})); a.download = 'questions.json'; document.body.appendChild(a); a.click(); a.remove();
+  }
+
+  function deleteAllQuestions(){
+    if(!confirm('Delete ALL questions?')) return;
+    questions = []; save(); render(); renderAdminList();
+  }
+  function resetAll(){
+    if(!confirm('Reset everything (questions & teams)?')) return;
+    questions = []; teams = []; curTeam = 0; save(); render(); renderAdminList();
+  }
+
+  function showRanking(){
+    const arr = teams.map(t=> ({name:t.name, score:t.score||0}));
+    arr.sort((a,b)=> b.score - a.score);
+    const modal = $('modalRank'); const content = $('rankContent');
+    let html = `<h2>Final Ranking</h2><ol>`;
+    arr.forEach((it, idx)=> html += `<li><strong>${idx+1}. ${escapeHtml(it.name)}</strong> — ${it.score} pts</li>`);
+    html += `</ol><div style="margin-top:12px"><button class="btn" id="rankClose">Close</button></div>`;
+    content.innerHTML = html;
+    modal.style.display = 'flex';
+    $('rankClose').addEventListener('click', ()=> modal.style.display = 'none');
+  }
+
+  // projector
+  function enterProjector(){ const p=$('projector'); p.style.display='flex'; syncProjector(); if(p.requestFullscreen) p.requestFullscreen().catch(()=>{}); }
+  function exitProjector(){ const p=$('projector'); p.style.display='none'; if(document.fullscreenElement) document.exitFullscreen().catch(()=>{}); }
+
+  function syncProjector(){
+    const p = $('projector'); if(getComputedStyle(p).display === 'none') return;
+    $('projTurn').textContent = teams.length ? `Turn: ${teams[curTeam].name}` : 'Turn: —';
+    if(lastOpened === null){ $('projQ').textContent='No question'; $('projOpts').innerHTML=''; $('projTimer').textContent=''; return; }
+    const q = questions[lastOpened];
+    $('projQ').textContent = q.text;
+    const out = $('projOpts'); out.innerHTML='';
+
+    // build projector options and sync their state with main options
+    for(let i=0;i<optionsPerQ;i++){
+      const d=document.createElement('div');
+      d.className='option';
+      d.dataset.i = i;
+      d.textContent = q.options[i] || `Option ${i+1}`;
+
+      // sync visual state from main option if exists
+      const mainOpt = document.querySelector(`#opts .opt[data-i='${i}']`);
+      if(mainOpt){
+        if(mainOpt.classList.contains('correct')) d.classList.add('correct');
+        if(mainOpt.classList.contains('wrong')) d.classList.add('wrong');
+        if(mainOpt.classList.contains('disabled')) d.classList.add('disabled');
+      }
+
+      // click handler: trigger the same logic as main option click
+      d.addEventListener('click', (e) => {
+        // ignore clicks when disabled
+        if(d.classList.contains('disabled')) return;
+
+        // find main option and trigger click so the same logic runs
+        const main = document.querySelector(`#opts .opt[data-i='${i}']`);
+        if(main){
+          main.click();
+        } else {
+          // fallback: call onOptionClick with a synthetic DOM-like object
+          onOptionClick(i, d);
+        }
+
+        // after click, sync visuals and disable if correct happened
+        // if correct added class to main, sync to projector options
+        const qNow = questions[lastOpened];
+        if(qNow){
+          // if any main option is correct, disable all projector options
+          const anyCorrect = Array.from(document.querySelectorAll('#opts .opt')).some(o => o.classList.contains('correct'));
+          if(anyCorrect){
+            Array.from(document.querySelectorAll('#projOpts .option')).forEach(o => o.classList.add('disabled'));
+          }
+        }
+        syncProjector();
+      });
+
+      out.appendChild(d);
+    }
+
+    $('projTimer').textContent = timeLeft > 0 ? `Time: ${timeLeft}` : '';
+  }
+
+  function escapeHtml(s){ return (s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  // events
+  $('btnSetup').addEventListener('click', ()=> $('modalSetup').style.display='flex');
+  $('closeSetup').addEventListener('click', ()=> $('modalSetup').style.display='none');
+  $('cancelSetup').addEventListener('click', ()=> $('modalSetup').style.display='none');
+  $('applySetup').addEventListener('click', ()=> {
+    const tc = Math.max(1, Math.min(6, parseInt($('teamCount').value||4)));
+    const qc = Math.max(6, Math.min(200, parseInt($('questionCount').value||50)));
+    direction = $('startDir').value || 'clockwise';
+    const names=[];
+    for(let i=1;i<=tc;i++){ const v=($('t'+i).value||'').trim() || String.fromCharCode(64+i); names.push({name:v, score:0}); }
+    teams = names; curTeam = 0;
+    if(questions.length < qc){ const start=questions.length+1; for(let i=start;i<=qc;i++){ const opts=[]; for(let k=1;k<=6;k++) opts.push(`Option ${k} for Q${i}`); questions.push({id:i,text:`Sample question ${i}?`,options:opts,answer:(i%6),used:false}); } }
+    else if(questions.length > qc){ questions = questions.slice(0,qc); questions.forEach((q,i)=> q.id=i+1); }
+    save(); render(); $('modalSetup').style.display='none';
+  });
+
+  $('btnAdmin').addEventListener('click', ()=> { $('modalAdmin').style.display='flex'; renderAdminList(); });
+  $('closeAdmin').addEventListener('click', ()=> $('modalAdmin').style.display='none');
+  $('closeAdminBottom').addEventListener('click', ()=> $('modalAdmin').style.display='none');
+
+  $('addQ').addEventListener('click', addAdminQuestion);
+  $('clearAdmin').addEventListener('click', clearAdminForm);
+  $('importBtn').addEventListener('click', importJSON);
+  $('exportBtn2').addEventListener('click', exportJSON);
+  $('deleteAll').addEventListener('click', deleteAllQuestions);
+  $('resetBtn').addEventListener('click', resetAll);
+
+  $('btnExport').addEventListener('click', exportJSON);
+  $('btnProjector').addEventListener('click', enterProjector);
+  $('projExit').addEventListener('click', exitProjector);
+
+  $('btnPass').addEventListener('click', passButtonHandler);
+  $('btnReveal').addEventListener('click', revealAudience);
+  $('btnNext').addEventListener('click', ()=> { nextHandler(); });
+
+  $('optionsCount').addEventListener('change', ()=> { optionsPerQ = parseInt($('optionsCount').value||6); save(); render(); });
+  $('mainTime').addEventListener('change', ()=> { mainTime = Math.max(1, parseInt($('mainTime').value||15)); save(); });
+  $('passTime').addEventListener('change', ()=> { passTime = Math.max(1, parseInt($('passTime').value||10)); save(); });
+
+  load(); render();
+  setInterval(()=> syncProjector(), 400);
+
+  window.__quiz_final_complete = { state: ()=> ({questions,teams,curTeam,direction}) };
+})();
+</script>
+</body>
+</html>
